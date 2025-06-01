@@ -2,13 +2,14 @@ import { Worker } from "worker_threads";
 
 export type Task = {
     taskId: string,
-    isCompressed: boolean,
+    isProcessing: boolean,
     fileToCompress: Express.Multer.File,
 }
 
 export type FileCompressWorker = {
     worker: Worker,
-    isAvailable: boolean
+    isAvailable: boolean,
+    assignedTask: Task | null,
 }
 
 export type MulterRequest = Request & { file: Express.Multer.File };

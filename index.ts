@@ -1,12 +1,13 @@
 import multer from "multer";
-import { Worker } from "worker_threads";
 import { TaskEventBus } from "./taskEventBus";
 import { FileCompressWorker } from "./dataTypes";
+import { createWorker } from "./worker/createWorker";
 import express, { Response, Request } from "express";
-import { addTaskToQueue, findNextUnprocessedTask, removeTaskFromQueue } from "./taskQueueManager";
+import { addTaskToQueue, findNextUnprocessedTask } from "./taskQueueManager";
 
 const port = 3000;
 const numOfActiveWorkers = 5;
+const workerPath = "./worker/fileCompressWorker.ts";
 const fileCompressWorkers: FileCompressWorker[] = [];
 
 const app = express();
@@ -37,51 +38,29 @@ app.listen(port, () => {
 	console.log(`Task queue app listening on port ${port}`);
 
 	for (let i = 0; i < numOfActiveWorkers; i++) {
-		// Creating worker pool
-		const worker = new Worker("./worker.ts");
-		fileCompressWorkers.push({
-			worker,
-			isAvailable: true,
-		});
+		createWorker(workerPath, fileCompressWorkers, i); // Creating worker pool
 	}
 });
 
+// The loop ensures multiple tasks are dispatched in one run if multiple workers are available
 function checkTaskQueue() {
-	const task = findNextUnprocessedTask();
-	if (!task) return;
-
-	const availableWorkerEntry = fileCompressWorkers.find((w) => w.isAvailable);
-	if (!availableWorkerEntry) return;
-
-	const { worker } = availableWorkerEntry;
-	availableWorkerEntry.isAvailable = false;
-	worker.postMessage(task.fileToCompress);
-
-	// Use `once` to prevent accumulating multiple listeners for repeated calls
-	worker.once("message", () => {
-		task.isCompressed = true;
-		availableWorkerEntry.isAvailable = true;
-		removeTaskFromQueue(task.taskId);
-		TaskEventBus.emit("workerAvailable");
-	});
-
-	worker.once("error", () => {});
-
-	worker.once("exit", (code) => {
-		if (code !== 0) {
-			const workerIndex = fileCompressWorkers.findIndex(
-				(fileCompressWorker) =>
-					fileCompressWorker.worker.threadId === worker.threadId
-			);
-
-			if (workerIndex !== -1) {
-				fileCompressWorkers[workerIndex] = {
-					worker: new Worker("./worker.ts"),
-					isAvailable: true,
-				};
-			}
+	while (true) {
+		const task = findNextUnprocessedTask();
+		if (!task) {
+			break;
 		}
-	});
+
+		const availableWorkerEntry = fileCompressWorkers.find((w) => w.isAvailable);
+		if (!availableWorkerEntry) {
+			break;
+		}
+
+		const { worker } = availableWorkerEntry;
+		task.isProcessing = true;
+		availableWorkerEntry.isAvailable = false;
+		availableWorkerEntry.assignedTask = task;
+		worker.postMessage(task.fileToCompress);
+	}
 }
 
 TaskEventBus.on("taskAdded", checkTaskQueue);

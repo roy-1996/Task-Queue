@@ -8,8 +8,8 @@ export function addTaskToQueue(fileToCompress: Express.Multer.File) {
 	const taskId = uuidv4()
 	taskQueue.push({
 		fileToCompress,
-		isCompressed: false,
 		taskId: taskId,
+		isProcessing: false,
 	});
 	TaskEventBus.emit("taskAdded");
 	return taskId;
@@ -24,6 +24,6 @@ export function removeTaskFromQueue(taskId: string) {
 }
 
 export function findNextUnprocessedTask(): Task | undefined {
-	const task = taskQueue.find((task) => !task.isCompressed);
+	const task = taskQueue.find((task) => !task.isProcessing);
 	return task;
 }
