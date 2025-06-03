@@ -1,7 +1,7 @@
 import { Worker } from "worker_threads";
 import { TaskEventBus } from "../taskEventBus";
-import { FileCompressWorker } from "../dataTypes";
-import { addTaskToQueue, removeTaskFromQueue } from "../taskQueueManager";
+import { FileCompressWorker, TaskStatus } from "../dataTypes";
+import { addTaskToQueue, markTaskStatus } from "../taskQueueManager";
 
 export function createWorker(workerPath: string, workerPool: FileCompressWorker[], workerIndex: number) {
 	const worker = new Worker(workerPath);
@@ -17,10 +17,10 @@ export function createWorker(workerPath: string, workerPool: FileCompressWorker[
 	worker.on("message", () => {
 		const task = fileCompressWorker.assignedTask;
 		if (task) {
-			removeTaskFromQueue(task.taskId);
-			fileCompressWorker.assignedTask = null;
 			fileCompressWorker.isAvailable = true;
-			TaskEventBus.emit("workerAvailable");					// Emit this event to invoke checkTaskQueue
+			fileCompressWorker.assignedTask = null;
+			markTaskStatus(task, TaskStatus.COMPLETED);
+			TaskEventBus.emit("workerAvailable"); // Emit this event to invoke checkTaskQueue
 		}
 	});
 
@@ -29,15 +29,20 @@ export function createWorker(workerPath: string, workerPool: FileCompressWorker[
 	});
 
 	worker.on("exit", (code) => {
-		if (code !== 0) {
-			const currentTask = workerPool[workerIndex].assignedTask;
-			if (currentTask) {
-                console.warn(`Worker crashed while processing task ${currentTask.taskId}. Retrying...`);
-				workerPool[workerIndex].assignedTask = null;
-				removeTaskFromQueue(currentTask.taskId); 			// Remove the old task from it's location
-                addTaskToQueue(currentTask.fileToCompress); 		// Add the file to the end of the queue
+		const currentTask = workerPool[workerIndex].assignedTask;
+		if (code !== 0 && currentTask) {
+			const { retryCount } = currentTask;
+
+			if (retryCount && retryCount >= MAX_RETRIES) {
+				markTaskStatus(currentTask, TaskStatus.FAILED);
+			} else {
+				console.warn(`Worker crashed while processing task ${currentTask.taskId}. Retrying...`);
+				currentTask.retryCount = currentTask.retryCount ?? 0 + 1;
+				addTaskToQueue(currentTask.fileToCompress); // Add the file to the end of the queue
 			}
-			createWorker(workerPath, workerPool, workerIndex);		// Spawn a new worker on worker crash
+
+			workerPool[workerIndex].assignedTask = null;
+			createWorker(workerPath, workerPool, workerIndex); // Spawn a new worker on worker crash
 		}
 	});
 }

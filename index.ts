@@ -1,13 +1,10 @@
 import multer from "multer";
 import { TaskEventBus } from "./taskEventBus";
-import { FileCompressWorker } from "./dataTypes";
 import { createWorker } from "./worker/createWorker";
 import express, { Response, Request } from "express";
-import { addTaskToQueue, findNextUnprocessedTask } from "./taskQueueManager";
+import { FileCompressWorker, TaskStatus } from "./dataTypes";
+import { addTaskToQueue, findNextUnprocessedTask, getTaskByTaskId, markTaskStatus } from "./taskQueueManager";
 
-const port = 3000;
-const numOfActiveWorkers = 5;
-const workerPath = "./worker/fileCompressWorker.ts";
 const fileCompressWorkers: FileCompressWorker[] = [];
 
 const app = express();
@@ -27,12 +24,49 @@ app.post(
 		}
 
 		const taskId = addTaskToQueue(fileToCompress);
+		if (!taskId) {
+			res
+				.status(503)
+				.send("Task limit exceeded!! Please try again later.")
+				.set("Retry-After", "10");
+			return;
+		}
+
 		res.status(202).send({
 			taskId: taskId,
 			message: "File accepted for compression",
 		});
 	}
 );
+
+app.get("/status/:taskId", (req, res) => {
+	const { taskId } = req.params;
+	const task = getTaskByTaskId(taskId);
+
+	if (!task) {
+		res.status(404).send(`Task with taskId ${taskId} not found.`);
+		return;
+	}
+
+	res.status(200).json({
+		taskId: taskId,
+		taskStatus: task.taskStatus,
+	});
+});
+
+app.get("/download/:taskId", (req, res) => {
+	const { taskId } = req.params;
+	const task = getTaskByTaskId(taskId);
+
+	if (!task) {
+		res.status(404).send(`Compressed file not found.`);
+		return;
+	}
+
+	if (task.taskStatus === TaskStatus.COMPLETED) {
+		res.status(200).download(task.outputFilePath);
+	}
+});
 
 app.listen(port, () => {
 	console.log(`Task queue app listening on port ${port}`);
@@ -56,7 +90,7 @@ function checkTaskQueue() {
 		}
 
 		const { worker } = availableWorkerEntry;
-		task.isProcessing = true;
+		markTaskStatus(task, TaskStatus.RUNNING);
 		availableWorkerEntry.isAvailable = false;
 		availableWorkerEntry.assignedTask = task;
 		worker.postMessage(task.fileToCompress);
