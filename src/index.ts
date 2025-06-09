@@ -1,12 +1,12 @@
 import multer from "multer";
 import { TaskEventBus } from "./taskEventBus";
 import express, { Response, Request } from "express";
-import { createWorker } from "../src/worker/createWorker";
-import { FileCompressWorker, TaskStatus } from "./dataTypes";
-import { numOfActiveWorkers, port, workerPath } from "./constants";
+import { TaskWorker, TaskStatus } from "./dataTypes";
+import { createTaskWorker } from "./worker/createTaskWorker";
+import { numOfActiveTaskWorkers, port, taskWorkerPath } from "./constants";
 import { addTaskToQueue, findNextUnprocessedTask, getTaskByTaskId, markTaskStatus } from "./taskQueueManager";
 
-const fileCompressWorkers: FileCompressWorker[] = [];
+const taskWorkers: TaskWorker[] = [];
 
 const app = express();
 const forms = multer();
@@ -72,8 +72,8 @@ app.get("/download/:taskId", (req, res) => {
 app.listen(port, () => {
 	console.log(`Task queue app listening on port ${port}`);
 
-	for (let i = 0; i < numOfActiveWorkers; i++) {
-		createWorker(workerPath, fileCompressWorkers, i); // Creating worker pool
+	for (let i = 0; i < numOfActiveTaskWorkers; i++) {
+		createTaskWorker(taskWorkerPath, taskWorkers, i); // Creating worker pool
 	}
 });
 
@@ -85,7 +85,7 @@ function checkTaskQueue() {
 			break;
 		}
 
-		const availableWorkerEntry = fileCompressWorkers.find((w) => w.isAvailable);
+		const availableWorkerEntry = taskWorkers.find((w) => w.isAvailable);
 		if (!availableWorkerEntry) {
 			break;
 		}
@@ -94,9 +94,6 @@ function checkTaskQueue() {
 		markTaskStatus(task, TaskStatus.RUNNING);
 		availableWorkerEntry.isAvailable = false;
 		availableWorkerEntry.assignedTask = task;
-
-		console.log("Going to call postMessage on worker");
-
 		worker.postMessage(task.fileToCompress);
 	}
 }

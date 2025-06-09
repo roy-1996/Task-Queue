@@ -1,15 +1,15 @@
 import { MAX_RETRIES } from "../constants";
 import { Worker } from 'node:worker_threads';
 import { TaskEventBus } from "../taskEventBus";
-import { FileCompressWorker, TaskStatus } from "../dataTypes";
+import { TaskWorker, TaskStatus } from "../dataTypes";
 import { addTaskToQueue, markTaskStatus } from "../taskQueueManager";
 
-export function createWorker(workerPath: string, workerPool: FileCompressWorker[], workerIndex: number) {
+export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], workerIndex: number) {
 	const worker = new Worker(workerPath, {
 		execArgv: ['-r', 'ts-node/register'],
 	  });
 
-	const fileCompressWorker: FileCompressWorker = {
+	const fileCompressWorker: TaskWorker = {
 		worker: worker,
 		isAvailable: true,
 		assignedTask: null,
@@ -49,7 +49,7 @@ export function createWorker(workerPath: string, workerPool: FileCompressWorker[
 			}
 
 			workerPool[workerIndex].assignedTask = null;
-			createWorker(workerPath, workerPool, workerIndex); // Spawn a new worker on worker crash
+			createTaskWorker(workerPath, workerPool, workerIndex); // Spawn a new worker on worker crash
 		}
 	});
 }
