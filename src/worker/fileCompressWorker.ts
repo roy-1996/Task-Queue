@@ -1,4 +1,4 @@
-import { workerData, parentPort } from 'worker_threads';
+import { parentPort } from 'worker_threads';
 
 
 async function mockCompressor() {
@@ -10,8 +10,7 @@ async function mockCompressor() {
 
 }
 
-process.on('message', async () => {
-    const fileToCompress = workerData;
+parentPort?.on('message', async (fileToCompress) => {
     console.log("******************** I have reached worker thread **********************");
     const mockCompress = await mockCompressor();
     parentPort?.postMessage('File has been compressed');    
