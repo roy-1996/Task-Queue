@@ -94,6 +94,9 @@ function checkTaskQueue() {
 		markTaskStatus(task, TaskStatus.RUNNING);
 		availableWorkerEntry.isAvailable = false;
 		availableWorkerEntry.assignedTask = task;
+
+		console.log("Going to call postMessage on worker");
+
 		worker.postMessage(task.fileToCompress);
 	}
 }

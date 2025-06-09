@@ -5,7 +5,9 @@ import { FileCompressWorker, TaskStatus } from "../dataTypes";
 import { addTaskToQueue, markTaskStatus } from "../taskQueueManager";
 
 export function createWorker(workerPath: string, workerPool: FileCompressWorker[], workerIndex: number) {
-	const worker = new Worker(workerPath);
+	const worker = new Worker(workerPath, {
+		execArgv: ['-r', 'ts-node/register'],
+	  });
 
 	const fileCompressWorker: FileCompressWorker = {
 		worker: worker,
