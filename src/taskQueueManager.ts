@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { TaskEventBus } from "./taskEventBus";
 import { Task, TaskStatus } from "./dataTypes";
+import { MAX_QUEUE_SIZE, TASK_RETENTION_MS } from "./constants";
 
 let taskQueue: Task[] = [];
 
@@ -45,6 +46,7 @@ export function markTaskStatus(task: Task, status: TaskStatus): void {
 	}
 	if (task.taskStatus === TaskStatus.COMPLETED) {
 		task.outputFilePath = `${process.cwd()}/${task.taskId}.zip`;
+		console.log(task.outputFilePath);
 	}
 }
 

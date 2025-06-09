@@ -1,8 +1,9 @@
 import multer from "multer";
 import { TaskEventBus } from "./taskEventBus";
-import { createWorker } from "./worker/createWorker";
 import express, { Response, Request } from "express";
+import { createWorker } from "../src/worker/createWorker";
 import { FileCompressWorker, TaskStatus } from "./dataTypes";
+import { numOfActiveWorkers, port, workerPath } from "./constants";
 import { addTaskToQueue, findNextUnprocessedTask, getTaskByTaskId, markTaskStatus } from "./taskQueueManager";
 
 const fileCompressWorkers: FileCompressWorker[] = [];

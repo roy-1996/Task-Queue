@@ -1,4 +1,5 @@
-import { Worker } from "worker_threads";
+import { MAX_RETRIES } from "../constants";
+import { Worker } from 'node:worker_threads';
 import { TaskEventBus } from "../taskEventBus";
 import { FileCompressWorker, TaskStatus } from "../dataTypes";
 import { addTaskToQueue, markTaskStatus } from "../taskQueueManager";
@@ -25,7 +26,9 @@ export function createWorker(workerPath: string, workerPool: FileCompressWorker[
 	});
 
 	worker.on("error", (error) => {
-		console.log(`Worker with id ${worker.threadId} crashed because of ${error.message}`);
+		console.log(
+			`Worker with id ${worker.threadId} crashed because of ${error.message}`
+		);
 	});
 
 	worker.on("exit", (code) => {
@@ -36,7 +39,9 @@ export function createWorker(workerPath: string, workerPool: FileCompressWorker[
 			if (retryCount && retryCount >= MAX_RETRIES) {
 				markTaskStatus(currentTask, TaskStatus.FAILED);
 			} else {
-				console.warn(`Worker crashed while processing task ${currentTask.taskId}. Retrying...`);
+				console.warn(
+					`Worker crashed while processing task ${currentTask.taskId}. Retrying...`
+				);
 				currentTask.retryCount = currentTask.retryCount ?? 0 + 1;
 				addTaskToQueue(currentTask.fileToCompress); // Add the file to the end of the queue
 			}
