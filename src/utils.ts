@@ -1,7 +1,19 @@
 import { numOfActiveCompressWorkers } from "./constants";
-
+/**
+ * Placeholder for compressing a chunk of data.
+ *
+ * @param chunkToCompress - The data chunk to be compressed.
+ *
+ * @remark This function currently has no implementation.
+ */
 export function compressFile(chunkToCompress: Uint8Array) {}
 
+/**
+ * Splits a buffer into chunks of 256 KB.
+ *
+ * @param fileBuffer - The buffer to be divided into chunks.
+ * @returns An array of {@link Uint8Array} chunks, each up to 256 KB in size.
+ */
 export function breakBufferIntoChunks(fileBuffer: Uint8Array) {
 	let i = 0;
 	const bufferLength = fileBuffer.length;
@@ -18,4 +30,10 @@ export function breakBufferIntoChunks(fileBuffer: Uint8Array) {
 	return chunkedBuffer;
 }
 
+/**
+ * Placeholder for merging compressed file chunks into a single output.
+ *
+ * @remark
+ * This function currently has no implementation.
+ */
 export function mergeCompressedChunks() {}

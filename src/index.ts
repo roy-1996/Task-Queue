@@ -77,7 +77,11 @@ app.listen(port, () => {
 	}
 });
 
-// The loop ensures multiple tasks are dispatched in one run if multiple workers are available
+/**
+ * Dispatches pending file compression tasks to available task workers.
+ *
+ * Continuously assigns unprocessed tasks from the queue to idle workers, marking tasks as running and workers as busy, until no further assignments are possible.
+ */
 function checkTaskQueue() {
 	while (true) {
 		const task = findNextUnprocessedTask();

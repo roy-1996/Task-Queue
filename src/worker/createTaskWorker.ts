@@ -4,6 +4,18 @@ import { TaskEventBus } from "../taskEventBus";
 import { TaskWorker, TaskStatus } from "../dataTypes";
 import { addTaskToQueue, markTaskStatus } from "../taskQueueManager";
 
+/**
+ * Initializes and manages a worker thread for file compression tasks within a worker pool.
+ *
+ * Replaces the specified worker in the pool with a new worker instance, sets up event listeners for task completion, error handling, and worker crashes, and ensures failed tasks are retried or marked as failed according to the maximum retry limit.
+ *
+ * @param workerPath - Path to the worker script.
+ * @param workerPool - Array representing the pool of task workers.
+ * @param workerIndex - Index in the pool where the new worker should be assigned.
+ *
+ * @remark
+ * If a worker crashes while processing a task, the function will automatically retry the task up to the maximum allowed retries and respawn the worker to maintain pool size.
+ */
 export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], workerIndex: number) {
 	const worker = new Worker(workerPath, {
 		execArgv: ['-r', 'ts-node/register'],
