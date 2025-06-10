@@ -21,19 +21,19 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 		execArgv: ['-r', 'ts-node/register'],
 	  });
 
-	const fileCompressWorker: TaskWorker = {
+	const taskWorker: TaskWorker = {
 		worker: worker,
 		isAvailable: true,
 		assignedTask: null,
 	};
 
-	workerPool[workerIndex] = fileCompressWorker;
+	workerPool[workerIndex] = taskWorker;
 
 	worker.on("message", () => {
-		const task = fileCompressWorker.assignedTask;
+		const task = taskWorker.assignedTask;
 		if (task) {
-			fileCompressWorker.isAvailable = true;
-			fileCompressWorker.assignedTask = null;
+			taskWorker.isAvailable = true;
+			taskWorker.assignedTask = null;
 			markTaskStatus(task, TaskStatus.COMPLETED);
 			TaskEventBus.emit("workerAvailable"); // Emit this event to invoke checkTaskQueue
 		}

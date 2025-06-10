@@ -12,17 +12,17 @@ import { ChunkCompressWorker } from "../dataTypes";
  * The worker is created with TypeScript runtime support enabled. Message handling for accumulating compressed chunks is not yet implemented.
  */
 export function createCompressWorker(workerPool: ChunkCompressWorker[], workerIndex: number) {
-        const chunkCompressWorker = new Worker(compressWorkerPath, {
+        const worker = new Worker(compressWorkerPath, {
             execArgv: ['-r', 'ts-node/register'],
           });
     
-        const fileCompressWorker: ChunkCompressWorker = {
-            worker: chunkCompressWorker, 
+        const chunkCompressWorker: ChunkCompressWorker = {
+            worker: worker, 
         };
 
-        workerPool[workerIndex] = fileCompressWorker;
+        workerPool[workerIndex] = chunkCompressWorker;
 
-        chunkCompressWorker.on('message', (compressedChunk) => {
+        worker.on('message', (compressedChunk) => {
             // TODO: Add code to accumulate the compressed chunks from all the chunk compressors for a particular task worker
         });
 

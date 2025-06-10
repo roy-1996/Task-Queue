@@ -1,3 +1,4 @@
+import { numOfActiveCompressWorkers } from "./constants";
 /**
  * Placeholder for compressing a chunk of data.
  *
@@ -15,9 +16,9 @@ export function compressFile(chunkToCompress: Uint8Array) {}
  */
 export function breakBufferIntoChunks(fileBuffer: Uint8Array) {
 	let i = 0;
-	const chunkSize = 256 * 1024;
 	const bufferLength = fileBuffer.length;
 	const chunkedBuffer: Uint8Array[] = [];
+	const chunkSize = Math.ceil(bufferLength / numOfActiveCompressWorkers);
 
 	while (i < bufferLength) {
         const endIndex = Math.min(i + chunkSize, bufferLength);
