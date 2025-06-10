@@ -2,3 +2,4 @@ node_modules/
 package-lock.json
 bruno.json
 File Compressor/
+.DS_Store

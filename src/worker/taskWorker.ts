@@ -6,12 +6,23 @@ import { createCompressWorker } from "./createCompressWorker";
 
 const chunkCompressWorkers: ChunkCompressWorker[] = [];
 
-parentPort?.on("message", async (fileToCompress) => {
+parentPort?.on("message", async (fileToCompress: Uint8Array) => {
 	const chunkedBuffer = breakBufferIntoChunks(fileToCompress);
-	for (let i = 0; i < numOfActiveCompressWorkers; i++) {
-		createCompressWorker(chunkCompressWorkers, i);
-		chunkCompressWorkers[i].worker.postMessage(chunkedBuffer);
+
+	if (chunkCompressWorkers.length === 0) {
+		for (let i = 0; i < numOfActiveCompressWorkers; i++) {
+			createCompressWorker(chunkCompressWorkers, i);
+		}
 	}
+
+	chunkedBuffer.forEach((fileChunk, index) => {
+		const workerIndex = index % numOfActiveCompressWorkers;
+		chunkCompressWorkers[workerIndex].worker.postMessage({
+			fileChunk,
+			index,
+			totalChunks: chunkedBuffer.length,
+		});
+	});
 });
 
 // https://www.youtube.com/watch?v=c2OSyOyAde0
