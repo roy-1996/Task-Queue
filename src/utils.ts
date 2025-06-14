@@ -1,3 +1,4 @@
+import zlib from "node:zlib";
 import { numOfActiveCompressWorkers } from "./constants";
 /**
  * Placeholder for compressing a chunk of data.
@@ -6,10 +7,11 @@ import { numOfActiveCompressWorkers } from "./constants";
  *
  * @remark This function currently has no implementation.
  */
-export function compressFile(chunkToCompress: Uint8Array) {}
+export function compressChunk(chunkToCompress: Uint8Array) {
+
+}
 
 /**
- * Splits a buffer into chunks of 256 KB.
  *
  * @param fileBuffer - The buffer to be divided into chunks.
  * @returns An array of {@link Uint8Array} chunks, each up to 256 KB in size.

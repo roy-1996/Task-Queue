@@ -18,7 +18,7 @@ import { addTaskToQueue, markTaskStatus } from "../taskQueueManager";
  */
 export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], workerIndex: number) {
 	const worker = new Worker(workerPath, {
-		execArgv: ['-r', 'ts-node/register'],
+		execArgv: [...process.execArgv, '-r', 'ts-node/register'],
 	  });
 
 	const taskWorker: TaskWorker = {
@@ -56,7 +56,7 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 				console.warn(
 					`Worker crashed while processing task ${currentTask.taskId}. Retrying...`
 				);
-				currentTask.retryCount = currentTask.retryCount ?? 0 + 1;
+				currentTask.retryCount = (currentTask.retryCount ?? 0) + 1;
 				addTaskToQueue(currentTask.fileToCompress); // Add the file to the end of the queue
 			}
 

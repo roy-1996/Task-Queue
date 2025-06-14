@@ -18,6 +18,7 @@ export function createCompressWorker(workerPool: ChunkCompressWorker[], workerIn
     
         const chunkCompressWorker: ChunkCompressWorker = {
             worker: worker, 
+            isAvailable: true
         };
 
         workerPool[workerIndex] = chunkCompressWorker;

@@ -98,7 +98,10 @@ function checkTaskQueue() {
 		markTaskStatus(task, TaskStatus.RUNNING);
 		availableWorkerEntry.isAvailable = false;
 		availableWorkerEntry.assignedTask = task;
-		worker.postMessage(task.fileToCompress);
+		worker.postMessage({
+			buffer: task.fileToCompress.buffer,
+			threadId: worker.threadId
+		});
 	}
 }
 
