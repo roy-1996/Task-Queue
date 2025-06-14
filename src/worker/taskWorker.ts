@@ -8,7 +8,7 @@ import { addChunkToQueue, findNextUnprocessedChunk, markChunkingStatus } from ".
 
 const chunkCompressWorkers: ChunkCompressWorker[] = [];
 
-parentPort?.on("message", async ({ buffer, threadId}) => {
+parentPort?.on("message", async ({ buffer, threadId }) => {
 	const chunkedBuffer = breakBufferIntoChunks(buffer);
 
 	if (chunkCompressWorkers.length === 0) {
