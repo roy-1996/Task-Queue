@@ -46,7 +46,6 @@ export function markTaskStatus(task: Task, status: TaskStatus): void {
 	}
 	if (task.taskStatus === TaskStatus.COMPLETED) {
 		task.outputFilePath = `${process.cwd()}/${task.taskId}.zip`;
-		console.log(task.outputFilePath);
 	}
 }
 

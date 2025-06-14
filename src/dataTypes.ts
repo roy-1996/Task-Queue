@@ -27,13 +27,30 @@ export type FailedTask = BaseTask & {
 
 export type Task = PendingTask | RunningTask | CompletedTask | FailedTask;
 
-export type FileCompressWorker = {
+export type ChunkData = {
+	chunk: Uint8Array,
+	status: ChunkingStatus
+}
+
+export type TaskWorker = {
 	worker: Worker;
 	isAvailable: boolean;
 	assignedTask: Task | null;
 };
 
+export type ChunkCompressWorker = {
+	worker: Worker;
+	isAvailable: boolean;
+}
+
 export enum TaskStatus {
+	PENDING = "pending",
+	RUNNING = "running",
+	COMPLETED = "completed",
+	FAILED = "failed",
+}
+
+export enum ChunkingStatus {
 	PENDING = "pending",
 	RUNNING = "running",
 	COMPLETED = "completed",
