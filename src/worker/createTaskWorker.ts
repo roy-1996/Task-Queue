@@ -1,8 +1,8 @@
 import { MAX_RETRIES } from "../constants";
 import { Worker } from 'node:worker_threads';
 import { TaskEventBus } from "../taskEventBus";
-import { TaskWorker, TaskStatus } from "../dataTypes";
-import { addTaskToQueue, markTaskStatus } from "../taskQueueManager";
+import { TaskWorker, ProcessingStatus } from "../dataTypes";
+import { markTaskStatus, requeueTask } from "../taskQueueManager";
 
 /**
  * Initializes and manages a worker thread for file compression tasks within a worker pool.
@@ -19,7 +19,7 @@ import { addTaskToQueue, markTaskStatus } from "../taskQueueManager";
 export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], workerIndex: number) {
 	const worker = new Worker(workerPath, {
 		execArgv: [...process.execArgv, '-r', 'ts-node/register'],
-	  });
+	});
 
 	const taskWorker: TaskWorker = {
 		worker: worker,
@@ -34,7 +34,7 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 		if (task) {
 			taskWorker.isAvailable = true;
 			taskWorker.assignedTask = null;
-			markTaskStatus(task, TaskStatus.COMPLETED);
+			markTaskStatus(task, ProcessingStatus.COMPLETED);
 			TaskEventBus.emit("workerAvailable"); // Emit this event to invoke checkTaskQueue
 		}
 	});
@@ -48,16 +48,16 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 	worker.on("exit", (code) => {
 		const currentTask = workerPool[workerIndex].assignedTask;
 		if (code !== 0 && currentTask) {
-			const { retryCount } = currentTask;
+			const retryCount = currentTask.retryCount ?? 0;
 
-			if (retryCount && retryCount >= MAX_RETRIES) {
-				markTaskStatus(currentTask, TaskStatus.FAILED);
+			if (retryCount >= MAX_RETRIES) {
+				markTaskStatus(currentTask, ProcessingStatus.FAILED);
 			} else {
 				console.warn(
 					`Worker crashed while processing task ${currentTask.taskId}. Retrying...`
 				);
-				currentTask.retryCount = (currentTask.retryCount ?? 0) + 1;
-				addTaskToQueue(currentTask.fileToCompress); // Add the file to the end of the queue
+				currentTask.retryCount = retryCount + 1;
+				requeueTask(currentTask); // Add the file to the end of the queue
 			}
 
 			workerPool[workerIndex].assignedTask = null;

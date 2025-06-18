@@ -1,30 +1,24 @@
 import { ChunkEventBus } from "./chunkEventBus";
-import { ChunkData, ChunkingStatus } from "./dataTypes";
+import { ChunkData, ProcessingStatus } from "./dataTypes";
 
-const chunksQueue = new Map<string, ChunkData[]>();
+const chunksQueue: ChunkData[] = [];
 
 export function addChunkToQueue(chunk: Uint8Array, threadId: string) {
-	const chunkEntry = { chunk, status: ChunkingStatus.PENDING };
+	const chunkEntry: ChunkData = {
+		chunk,
+		taskThreadId: threadId,
+		status: ProcessingStatus.PENDING,
+	};
 
-	if (!chunksQueue.has(threadId)) {
-		chunksQueue.set(threadId, []);
-	}
-
-	chunksQueue.get(threadId)?.push(chunkEntry);
+	chunksQueue.push(chunkEntry);
 	ChunkEventBus.emit("chunkAvailable");
 }
 
 export function findNextUnprocessedChunk(): ChunkData | undefined {
-	for (const chunkArray of chunksQueue.values()) {
-		for (const chunkEntry of chunkArray) {
-			if (chunkEntry.status === ChunkingStatus.PENDING) {
-				return chunkEntry;
-			}
-		}
-	}
-	return undefined;
+	const chunkData = chunksQueue.find((chunkData) => chunkData.status === ProcessingStatus.PENDING);
+	return chunkData;
 }
 
-export function markChunkingStatus(chunkData: ChunkData, chunkingStatus: ChunkingStatus) {
+export function markChunkingStatus(chunkData: ChunkData, chunkingStatus: ProcessingStatus) {
     chunkData.status = chunkingStatus;
 }

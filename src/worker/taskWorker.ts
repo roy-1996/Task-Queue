@@ -3,12 +3,12 @@ import { breakBufferIntoChunks } from "../utils";
 import { ChunkEventBus } from "../chunkEventBus";
 import { numOfActiveCompressWorkers } from "../constants";
 import { createCompressWorker } from "./createCompressWorker";
-import { ChunkCompressWorker, ChunkingStatus } from "../dataTypes";
+import { ChunkCompressWorker, IncomingTaskMessage, ProcessingStatus } from "../dataTypes";
 import { addChunkToQueue, findNextUnprocessedChunk, markChunkingStatus } from "../chunksQueueManager";
 
 const chunkCompressWorkers: ChunkCompressWorker[] = [];
 
-parentPort?.on("message", async ({ buffer, threadId }) => {
+parentPort?.on("message", ({ buffer, threadId }: IncomingTaskMessage) => {
 	const chunkedBuffer = breakBufferIntoChunks(buffer);
 
 	if (chunkCompressWorkers.length === 0) {
@@ -34,7 +34,7 @@ function processChunks() {
 
 		const { worker } = availableChunkCompressor;
 		availableChunkCompressor.isAvailable = false;
-		markChunkingStatus(nextChunkData, ChunkingStatus.RUNNING);
+		markChunkingStatus(nextChunkData, ProcessingStatus.RUNNING);
 		worker.postMessage(nextChunkData);
 	}
 }

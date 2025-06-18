@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { TaskEventBus } from "./taskEventBus";
-import { Task, TaskStatus } from "./dataTypes";
+import { Task, ProcessingStatus, PendingTask } from "./dataTypes";
 import { MAX_QUEUE_SIZE, TASK_RETENTION_MS } from "./constants";
 
 let taskQueue: Task[] = [];
@@ -15,7 +15,7 @@ export function addTaskToQueue(fileToCompress: Express.Multer.File) {
 	taskQueue.push({
 		fileToCompress,
 		taskId: taskId,
-		taskStatus: TaskStatus.PENDING,
+		taskStatus: ProcessingStatus.PENDING,
 	});
 	TaskEventBus.emit("taskAdded");
 	return taskId;
@@ -30,8 +30,19 @@ export function removeTaskFromQueue(taskId: string) {
 }
 
 export function findNextUnprocessedTask(): Task | undefined {
-	const task = taskQueue.find((task) => task.taskStatus === TaskStatus.PENDING);
+	const task = taskQueue.find((task) => task.taskStatus === ProcessingStatus.PENDING);
 	return task;
+}
+
+export function requeueTask(task: Task) {
+	removeTaskFromQueue(task.taskId);
+	const pendingTask: PendingTask = {
+		taskId: task.taskId,
+		fileToCompress: task.fileToCompress,
+		taskStatus: ProcessingStatus.PENDING,
+	};
+	taskQueue.push(pendingTask);
+	TaskEventBus.emit("taskAdded");		// Emit event to trigger queue processing
 }
 
 export function getTaskByTaskId(taskId: string): Task | undefined {
@@ -39,12 +50,12 @@ export function getTaskByTaskId(taskId: string): Task | undefined {
 	return task;
 }
 
-export function markTaskStatus(task: Task, status: TaskStatus): void {
+export function markTaskStatus(task: Task, status: ProcessingStatus): void {
 	task.taskStatus = status;
-	if (task.taskStatus === TaskStatus.COMPLETED || task.taskStatus === TaskStatus.FAILED) {
+	if (task.taskStatus === ProcessingStatus.COMPLETED || task.taskStatus === ProcessingStatus.FAILED) {
 		task.completedAt = Date.now();
 	}
-	if (task.taskStatus === TaskStatus.COMPLETED) {
+	if (task.taskStatus === ProcessingStatus.COMPLETED) {
 		task.outputFilePath = `${process.cwd()}/${task.taskId}.zip`;
 	}
 }
@@ -55,7 +66,7 @@ export function markTaskStatus(task: Task, status: TaskStatus): void {
 setInterval(() => {
 	taskQueue = taskQueue.filter((task) => {
 		const isExpired =  
-				(task.taskStatus === TaskStatus.COMPLETED || task.taskStatus === TaskStatus.FAILED) &&
+				(task.taskStatus === ProcessingStatus.COMPLETED || task.taskStatus === ProcessingStatus.FAILED) &&
 					(Date.now() - task.completedAt >= TASK_RETENTION_MS) 
 			
 		return !isExpired;

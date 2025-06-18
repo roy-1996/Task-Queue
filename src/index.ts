@@ -1,15 +1,17 @@
 import multer from "multer";
 import { TaskEventBus } from "./taskEventBus";
 import express, { Response, Request } from "express";
-import { TaskWorker, TaskStatus } from "./dataTypes";
+import { TaskWorker, ProcessingStatus } from "./dataTypes";
 import { createTaskWorker } from "./worker/createTaskWorker";
+import { CompressionBroker } from "./worker/compressionBroker";
 import { numOfActiveTaskWorkers, port, taskWorkerPath } from "./constants";
 import { addTaskToQueue, findNextUnprocessedTask, getTaskByTaskId, markTaskStatus } from "./taskQueueManager";
 
-const taskWorkers: TaskWorker[] = [];
-
 const app = express();
 const forms = multer();
+
+const taskWorkers: TaskWorker[] = [];
+const compressionBroker = new CompressionBroker();
 
 app.post(
 	"/compressFile",
@@ -64,7 +66,7 @@ app.get("/download/:taskId", (req, res) => {
 		return;
 	}
 
-	if (task.taskStatus === TaskStatus.COMPLETED) {
+	if (task.taskStatus === ProcessingStatus.COMPLETED) {
 		res.status(200).download(task.outputFilePath);
 	}
 });
@@ -84,6 +86,7 @@ app.listen(port, () => {
  */
 function checkTaskQueue() {
 	while (true) {
+		const { port1: taskPort, port2: brokerPort } = new MessageChannel();
 		const task = findNextUnprocessedTask();
 		if (!task) {
 			break;
@@ -95,13 +98,16 @@ function checkTaskQueue() {
 		}
 
 		const { worker } = availableWorkerEntry;
-		markTaskStatus(task, TaskStatus.RUNNING);
+		markTaskStatus(task, ProcessingStatus.RUNNING);
 		availableWorkerEntry.isAvailable = false;
 		availableWorkerEntry.assignedTask = task;
+
+		compressionBroker.registerTaskWorker(task.taskId, brokerPort);	
 		worker.postMessage({
 			buffer: task.fileToCompress.buffer,
-			threadId: worker.threadId
-		});
+			threadId: worker.threadId,
+			port: taskPort
+		}, [taskPort]);
 	}
 }
 

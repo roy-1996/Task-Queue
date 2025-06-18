@@ -1,3 +1,4 @@
+import { Request } from 'express';
 import { Worker } from "worker_threads";
 
 type BaseTask = {
@@ -7,29 +8,30 @@ type BaseTask = {
 };
 
 export type PendingTask = BaseTask & {
-	taskStatus: TaskStatus.PENDING;
+	taskStatus: ProcessingStatus.PENDING;
 };
 
 export type RunningTask = BaseTask & {
-	taskStatus: TaskStatus.RUNNING;
+	taskStatus: ProcessingStatus.RUNNING;
 };
 
 export type CompletedTask = BaseTask & {
 	completedAt: number;
     outputFilePath: string;
-	taskStatus: TaskStatus.COMPLETED;
+	taskStatus: ProcessingStatus.COMPLETED;
 };
 
 export type FailedTask = BaseTask & {
 	completedAt: number;
-	taskStatus: TaskStatus.FAILED;
+	taskStatus: ProcessingStatus.FAILED;
 };
 
 export type Task = PendingTask | RunningTask | CompletedTask | FailedTask;
 
 export type ChunkData = {
+	taskId: string,
 	chunk: Uint8Array,
-	status: ChunkingStatus
+	status: ProcessingStatus
 }
 
 export type TaskWorker = {
@@ -43,14 +45,7 @@ export type ChunkCompressWorker = {
 	isAvailable: boolean;
 }
 
-export enum TaskStatus {
-	PENDING = "pending",
-	RUNNING = "running",
-	COMPLETED = "completed",
-	FAILED = "failed",
-}
-
-export enum ChunkingStatus {
+export enum ProcessingStatus {
 	PENDING = "pending",
 	RUNNING = "running",
 	COMPLETED = "completed",
@@ -58,3 +53,5 @@ export enum ChunkingStatus {
 }
 
 export type MulterRequest = Request & { file: Express.Multer.File };
+
+export type IncomingTaskMessage = { buffer: Uint8Array; threadId: string };
