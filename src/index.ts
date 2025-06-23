@@ -86,7 +86,7 @@ app.listen(port, () => {
  */
 function checkTaskQueue() {
 	while (true) {
-		const { port1: taskPort, port2: brokerPort } = new MessageChannel();
+		const { port1: taskWorkerPort, port2: brokerPort } = new MessageChannel();
 		const task = findNextUnprocessedTask();
 		if (!task) {
 			break;
@@ -105,9 +105,9 @@ function checkTaskQueue() {
 		compressionBroker.registerTaskWorker(task.taskId, brokerPort);	
 		worker.postMessage({
 			buffer: task.fileToCompress.buffer,
-			threadId: worker.threadId,
-			port: taskPort
-		}, [taskPort]);
+			taskId: task.taskId,
+			taskWorkerPort: taskWorkerPort
+		}, [taskWorkerPort]);
 	}
 }
 

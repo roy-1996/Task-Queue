@@ -1,6 +1,6 @@
 import { MessagePort, Worker } from "node:worker_threads";
 import { compressWorkerPath, numOfActiveCompressWorkers } from "../constants";
-import { ChunkCompressWorker, ChunkData, ProcessingStatus } from "../dataTypes";
+import { ChunkCompressWorker, ChunkData, IncomingCompressionMessage, ProcessingStatus } from "../dataTypes";
 
 export class CompressionBroker {
 	private readonly chunksQueue: ChunkData[];
@@ -27,8 +27,8 @@ export class CompressionBroker {
 			this.chunkCompressWorkers.push(chunkCompressWorker);
 
 			worker.on('message', ({ compressedChunk, taskId }) => {
-				const taskWorkerPort = this.taskPorts.get(taskId);
-				taskWorkerPort?.postMessage({
+				const brokerPort = this.taskPorts.get(taskId);
+				brokerPort?.postMessage({
 					compressedChunk: compressedChunk					// Send the compressed chunk to its associated task worker for accumulation
 				});
 				chunkCompressWorker.isAvailable = true;					// Mark the worker as available so that it can be found
@@ -58,10 +58,11 @@ export class CompressionBroker {
 
 	public registerTaskWorker(taskId: string, brokerPort: MessagePort) {
 		this.taskPorts.set(taskId, brokerPort);
-		brokerPort.on('message', (chunk: Uint8Array) => {
+		brokerPort.on('message', ({ chunkToCompress, chunkId }: IncomingCompressionMessage) => {
 			this.chunksQueue.push({								// The task worker breaks the files into chunks and sends each of them to be processed by a compress worker
-				chunk: chunk,
 				taskId: taskId,
+				chunkIndex: chunkId,
+				chunk: chunkToCompress,
 				status: ProcessingStatus.PENDING
 			});
 			this.processChunks();								// Analogous to TaskEventBus.emit("taskAdded") event

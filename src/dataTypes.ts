@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { Worker } from "worker_threads";
+import { MessagePort, Worker } from "worker_threads";
 
 type BaseTask = {
 	taskId: string;
@@ -31,6 +31,7 @@ export type Task = PendingTask | RunningTask | CompletedTask | FailedTask;
 export type ChunkData = {
 	taskId: string,
 	chunk: Uint8Array,
+	chunkIndex: number,
 	status: ProcessingStatus
 }
 
@@ -54,4 +55,6 @@ export enum ProcessingStatus {
 
 export type MulterRequest = Request & { file: Express.Multer.File };
 
-export type IncomingTaskMessage = { buffer: Uint8Array; threadId: string };
+export type IncomingTaskMessage = { buffer: Uint8Array; taskId: string; taskWorkerPort: MessagePort };
+
+export type IncomingCompressionMessage = { chunkToCompress: Uint8Array, chunkId: number }

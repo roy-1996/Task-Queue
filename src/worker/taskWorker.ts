@@ -1,45 +1,49 @@
+import { writeFile } from "node:fs";
 import { parentPort } from "worker_threads";
 import { breakBufferIntoChunks } from "../utils";
-import { ChunkEventBus } from "../chunkEventBus";
-import { numOfActiveCompressWorkers } from "../constants";
-import { createCompressWorker } from "./createCompressWorker";
-import { ChunkCompressWorker, IncomingTaskMessage, ProcessingStatus } from "../dataTypes";
-import { addChunkToQueue, findNextUnprocessedChunk, markChunkingStatus } from "../chunksQueueManager";
+import { IncomingTaskMessage } from "../dataTypes";
 
-const chunkCompressWorkers: ChunkCompressWorker[] = [];
+parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessage) => {
 
-parentPort?.on("message", ({ buffer, threadId }: IncomingTaskMessage) => {
-	const chunkedBuffer = breakBufferIntoChunks(buffer);
+		// Map to maintain mapping of chunk index and the compressed chunk
 
-	if (chunkCompressWorkers.length === 0) {
-		for (let i = 0; i < numOfActiveCompressWorkers; i++) {
-			createCompressWorker(chunkCompressWorkers, i);
-		}
+		const compressedChunks = new Map<number, Buffer>();
+		const chunkedBuffer = breakBufferIntoChunks(buffer);
+
+		// Sends the chunk to the broker which then pushes it to its queue.
+
+		chunkedBuffer.forEach((chunk, index) => {
+			taskWorkerPort.postMessage({
+				chunkId: index,
+				chunkToCompress: chunk,
+			});
+		});
+
+		// Compression Worker ----> Compression Broker ------> Task Worker
+
+		taskWorkerPort.on("message", (messageFromBroker) => {
+			compressedChunks.set(messageFromBroker.chunkId, messageFromBroker.compressedData);
+
+			// Accumulate the compressed chunks and sort them based on their position
+
+			if (compressedChunks.size === chunkedBuffer.length) {
+				const filePath = `/tmp/compressed_${taskId}.zip`;
+				const ordered = [...compressedChunks.entries()]
+					.sort((a, b) => a[0] - b[0])
+					.map(([, buf]) => buf);
+				
+				writeFile(filePath, Buffer.concat(ordered), (error) => {
+					if (error) {
+						throw error;	// TODO: Check how can this error be handled elegantly.
+					} else {
+						parentPort?.postMessage({ compressedFilePath: filePath });		// Send the path to the compressed file back to the main thread.
+					}
+				})
+
+			}
+		});
 	}
-
-	chunkedBuffer.forEach((fileChunk) => addChunkToQueue(fileChunk, threadId));
-});
-
-function processChunks() {
-	while (true) {
-		const nextChunkData = findNextUnprocessedChunk();
-		if (!nextChunkData) {
-			return;
-		}
-
-		const availableChunkCompressor = chunkCompressWorkers.find(worker => worker.isAvailable);
-		if (!availableChunkCompressor) {
-			return;
-		}
-
-		const { worker } = availableChunkCompressor;
-		availableChunkCompressor.isAvailable = false;
-		markChunkingStatus(nextChunkData, ProcessingStatus.RUNNING);
-		worker.postMessage(nextChunkData);
-	}
-}
-
-ChunkEventBus.on("chunkAvailable", processChunks);
+);
 
 // https://www.youtube.com/watch?v=c2OSyOyAde0
 // https://medium.com/@serhiisamoilenko/speeding-up-file-parsing-with-multi-threading-in-nodejs-and-typescript-9e91728cf607
