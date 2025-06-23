@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "Task queue with worker pool",
   "main": "index.ts",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
+    "start": "ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -25,6 +26,9 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.2",
-    "@types/multer": "^1.4.12"
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.15.30",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   }
 }

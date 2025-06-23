@@ -1,4 +1,5 @@
-import { Worker } from "worker_threads";
+import { Request } from 'express';
+import { MessagePort, Worker } from "worker_threads";
 
 type BaseTask = {
 	taskId: string;
@@ -7,33 +8,45 @@ type BaseTask = {
 };
 
 export type PendingTask = BaseTask & {
-	taskStatus: TaskStatus.PENDING;
+	taskStatus: ProcessingStatus.PENDING;
 };
 
 export type RunningTask = BaseTask & {
-	taskStatus: TaskStatus.RUNNING;
+	taskStatus: ProcessingStatus.RUNNING;
 };
 
 export type CompletedTask = BaseTask & {
 	completedAt: number;
     outputFilePath: string;
-	taskStatus: TaskStatus.COMPLETED;
+	taskStatus: ProcessingStatus.COMPLETED;
 };
 
 export type FailedTask = BaseTask & {
 	completedAt: number;
-	taskStatus: TaskStatus.FAILED;
+	taskStatus: ProcessingStatus.FAILED;
 };
 
 export type Task = PendingTask | RunningTask | CompletedTask | FailedTask;
 
-export type FileCompressWorker = {
+export type ChunkData = {
+	taskId: string,
+	chunk: Uint8Array,
+	chunkIndex: number,
+	status: ProcessingStatus
+}
+
+export type TaskWorker = {
 	worker: Worker;
 	isAvailable: boolean;
 	assignedTask: Task | null;
 };
 
-export enum TaskStatus {
+export type ChunkCompressWorker = {
+	worker: Worker;
+	isAvailable: boolean;
+}
+
+export enum ProcessingStatus {
 	PENDING = "pending",
 	RUNNING = "running",
 	COMPLETED = "completed",
@@ -41,3 +54,9 @@ export enum TaskStatus {
 }
 
 export type MulterRequest = Request & { file: Express.Multer.File };
+
+export type IncomingTaskMessage = { buffer: Uint8Array; taskId: string; taskWorkerPort: MessagePort };
+
+export type IncomingChunkMessage = { chunkToCompress: Uint8Array, chunkIndex: number };
+
+export type IncomingCompressionMessage = { taskId: string, chunkIndex: number, compressedChunk: Buffer  };
