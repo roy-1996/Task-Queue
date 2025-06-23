@@ -1,9 +1,9 @@
 import { MessagePort, Worker } from "node:worker_threads";
 import { compressWorkerPath, numOfActiveCompressWorkers } from "../constants";
-import { ChunkCompressWorker, ChunkData, IncomingCompressionMessage, ProcessingStatus } from "../dataTypes";
+import { ChunkCompressWorker, ChunkData, IncomingChunkMessage, IncomingCompressionMessage, ProcessingStatus } from "../dataTypes";
 
 export class CompressionBroker {
-	private readonly chunksQueue: ChunkData[];
+	private chunksQueue: ChunkData[];
 	private readonly taskPorts: Map<string, MessagePort>;
 	private readonly chunkCompressWorkers: ChunkCompressWorker[];
 
@@ -26,13 +26,14 @@ export class CompressionBroker {
 			};
 			this.chunkCompressWorkers.push(chunkCompressWorker);
 
-			worker.on('message', ({ compressedChunk, taskId, chunkId }) => {
+			worker.on('message', ({ compressedChunk, taskId, chunkIndex }: IncomingCompressionMessage) => {
 				const brokerPort = this.taskPorts.get(taskId);
 				brokerPort?.postMessage({
-					chunkId,
+					chunkIndex,
 					compressedChunk										// Send the compressed chunk to its associated task worker for accumulation
 				});
 				chunkCompressWorker.isAvailable = true;					// Mark the worker as available so that it can be found
+				this.cleanUpCompletedTask(taskId, chunkIndex);			// Remove completed task from chunks queue
 				this.processChunks();									// Analogous to TaskEventBus.emit("workerAvailable") event
 			});
 		}
@@ -57,12 +58,16 @@ export class CompressionBroker {
 		worker.postMessage(nextChunkData);
 	}
 
+	private cleanUpCompletedTask(taskId: string, chunkIndex: number) {
+		this.chunksQueue = this.chunksQueue.filter((chunk) => !(chunk.taskId === taskId && chunk.chunkIndex === chunkIndex));
+	}
+
 	public registerTaskWorker(taskId: string, brokerPort: MessagePort) {
 		this.taskPorts.set(taskId, brokerPort);
-		brokerPort.on('message', ({ chunkToCompress, chunkId }: IncomingCompressionMessage) => {
+		brokerPort.on('message', ({ chunkToCompress, chunkIndex }: IncomingChunkMessage) => {
 			this.chunksQueue.push({								// The task worker breaks the files into chunks and sends each of them to be processed by a compress worker
-				taskId: taskId,
-				chunkIndex: chunkId,
+				taskId,
+				chunkIndex,
 				chunk: chunkToCompress,
 				status: ProcessingStatus.PENDING
 			});

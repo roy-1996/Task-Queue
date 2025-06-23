@@ -57,4 +57,6 @@ export type MulterRequest = Request & { file: Express.Multer.File };
 
 export type IncomingTaskMessage = { buffer: Uint8Array; taskId: string; taskWorkerPort: MessagePort };
 
-export type IncomingCompressionMessage = { chunkToCompress: Uint8Array, chunkId: number }
+export type IncomingChunkMessage = { chunkToCompress: Uint8Array, chunkIndex: number };
+
+export type IncomingCompressionMessage = { taskId: string, chunkIndex: number, compressedChunk: Buffer  };

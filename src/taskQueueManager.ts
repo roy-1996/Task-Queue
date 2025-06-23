@@ -1,9 +1,12 @@
+import { unlink } from 'node:fs';
 import { v4 as uuidv4 } from "uuid";
+import { promisify } from "node:util";
 import { TaskEventBus } from "./taskEventBus";
 import { Task, ProcessingStatus, PendingTask } from "./dataTypes";
 import { MAX_QUEUE_SIZE, TASK_RETENTION_MS } from "./constants";
 
 let taskQueue: Task[] = [];
+const unlinkAsync = promisify(unlink);
 
 export function addTaskToQueue(fileToCompress: Express.Multer.File) {
 	if (taskQueue.length >= MAX_QUEUE_SIZE) {
@@ -61,14 +64,29 @@ export function markTaskStatus(task: Task, status: ProcessingStatus): void {
 }
 
 // Remove the successful and failed tasks after 10 mins of their completion
-// TODO: Add logic to delete the compressed file
 
-setInterval(() => {
-	taskQueue = taskQueue.filter((task) => {
-		const isExpired =  
-				(task.taskStatus === ProcessingStatus.COMPLETED || task.taskStatus === ProcessingStatus.FAILED) &&
-					(Date.now() - task.completedAt >= TASK_RETENTION_MS) 
-			
-		return !isExpired;
-	});
+setInterval(async () => {
+	for (let i = taskQueue.length - 1; i >= 0; i--) {
+		const task = taskQueue[i];
+		const isExpired =  (task.taskStatus === ProcessingStatus.COMPLETED || task.taskStatus === ProcessingStatus.FAILED) &&
+							(Date.now() - task.completedAt >= TASK_RETENTION_MS);
+		if (isExpired) {
+			try {
+				await deleteCompressedFile(task.taskId);
+				removeTaskFromQueue(task.taskId);
+			} catch (error) {
+				console.error(`Failed to delete file for task ${task.taskId}. Task will remain in queue for retry.`, error);
+			}
+		} 
+	}
 }, 60 * 1000);
+
+async function deleteCompressedFile(taskId: string) {
+	const filePath =  `${process.cwd()}/${taskId}.zip`;
+	try {
+		await unlinkAsync(filePath);
+		console.log(`Deleted compressed file successfully at path ${filePath}`);
+	} catch (error) {
+		console.log(`Failed to delete the compressed file at path ${filePath}`, error);
+	}
+}
