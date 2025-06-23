@@ -26,10 +26,11 @@ export class CompressionBroker {
 			};
 			this.chunkCompressWorkers.push(chunkCompressWorker);
 
-			worker.on('message', ({ compressedChunk, taskId }) => {
+			worker.on('message', ({ compressedChunk, taskId, chunkId }) => {
 				const brokerPort = this.taskPorts.get(taskId);
 				brokerPort?.postMessage({
-					compressedChunk: compressedChunk					// Send the compressed chunk to its associated task worker for accumulation
+					chunkId,
+					compressedChunk										// Send the compressed chunk to its associated task worker for accumulation
 				});
 				chunkCompressWorker.isAvailable = true;					// Mark the worker as available so that it can be found
 				this.processChunks();									// Analogous to TaskEventBus.emit("workerAvailable") event

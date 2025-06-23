@@ -22,7 +22,7 @@ parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessa
 		// Compression Worker ----> Compression Broker ------> Task Worker
 
 		taskWorkerPort.on("message", (messageFromBroker) => {
-			compressedChunks.set(messageFromBroker.chunkId, messageFromBroker.compressedData);
+			compressedChunks.set(messageFromBroker.chunkId, messageFromBroker.compressedChunk);
 
 			// Accumulate the compressed chunks and sort them based on their position
 
