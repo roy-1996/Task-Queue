@@ -32,6 +32,7 @@ export type ChunkData = {
 	taskId: string,
 	chunk: Uint8Array,
 	chunkIndex: number,
+	retryCount? : number,
 	status: ProcessingStatus
 }
 
@@ -43,6 +44,8 @@ export type TaskWorker = {
 
 export type ChunkCompressWorker = {
 	worker: Worker;
+	taskId: string;
+	chunkIndex: number;
 	isAvailable: boolean;
 }
 

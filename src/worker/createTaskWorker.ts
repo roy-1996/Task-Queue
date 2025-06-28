@@ -41,7 +41,7 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 
 	worker.on("error", (error) => {
 		console.log(
-			`Worker with id ${worker.threadId} crashed because of ${error.message}`
+			`Worker with task id ${taskWorker.assignedTask?.taskId} and thread id ${worker.threadId} crashed because of ${error.message}`
 		);
 	});
 
@@ -54,7 +54,7 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 				markTaskStatus(currentTask, ProcessingStatus.FAILED);
 			} else {
 				console.warn(
-					`Worker crashed while processing task ${currentTask.taskId}. Retrying...`
+					`Task worker crashed while processing task ${currentTask.taskId}. Retrying...`
 				);
 				currentTask.retryCount = retryCount + 1;
 				requeueTask(currentTask); // Add the file to the end of the queue
