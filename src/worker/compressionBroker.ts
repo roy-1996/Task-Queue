@@ -11,32 +11,51 @@ export class CompressionBroker {
 		this.chunksQueue = [];
 		this.chunkCompressWorkers = [];
 		this.taskPorts = new Map<string, MessagePort>();
-		this.spawnCompressionPoolWorkers();
+		for (let i = 0; i < numOfActiveCompressWorkers; i++) {
+			this.spawnCompressionPoolWorker(i);
+		}
 	}
 
-	private spawnCompressionPoolWorkers() {
-		for (let i = 0; i < numOfActiveCompressWorkers; i++) {
-			const worker = new Worker(compressWorkerPath, {
-				execArgv: ["-r", "ts-node/register"],
-			});
+	private spawnCompressionPoolWorker(workerIndex: number) {
+		const worker = new Worker(compressWorkerPath, {
+			execArgv: ["-r", "ts-node/register"],
+		});
 
-			const chunkCompressWorker: ChunkCompressWorker = {
-				worker: worker,
-				isAvailable: true,
-			};
-			this.chunkCompressWorkers.push(chunkCompressWorker);
+		const chunkCompressWorker: ChunkCompressWorker = {
+			worker: worker,
+			taskId: '',
+			chunkIndex: -1,
+			isAvailable: true,
+		};
 
-			worker.on('message', ({ compressedChunk, taskId, chunkIndex }: IncomingCompressionMessage) => {
-				const brokerPort = this.taskPorts.get(taskId);
-				brokerPort?.postMessage({
-					chunkIndex,
-					compressedChunk										// Send the compressed chunk to its associated task worker for accumulation
-				});
-				chunkCompressWorker.isAvailable = true;					// Mark the worker as available so that it can be found
-				this.cleanUpCompletedTask(taskId, chunkIndex);			// Remove completed task from chunks queue
-				this.processChunks();									// Analogous to TaskEventBus.emit("workerAvailable") event
+		this.chunkCompressWorkers[workerIndex] = chunkCompressWorker;
+
+		worker.on('message', ({ compressedChunk, taskId, chunkIndex }: IncomingCompressionMessage) => {
+			const brokerPort = this.taskPorts.get(taskId);
+			brokerPort?.postMessage({
+				chunkIndex,
+				compressedChunk										// Send the compressed chunk to its associated task worker for accumulation
 			});
-		}
+			chunkCompressWorker.isAvailable = true;					// Mark the worker as available so that it can be found
+			this.cleanUpCompletedTask(taskId, chunkIndex);			// Remove completed task from chunks queue
+			this.processChunks();									// Analogous to TaskEventBus.emit("workerAvailable") event
+		});
+
+		worker.on('error', (error) => {
+			console.log(`Compression Worker with task id ${chunkCompressWorker.taskId} and thread id ${worker.threadId} crashed because of ${error.message}`);
+		});
+
+		worker.on('exit', (code) => {
+			const { taskId, chunkIndex } = chunkCompressWorker;
+			if (code !== 0) {
+				console.warn(`Compression worker crashed while processing task ${taskId} and chunk index ${chunkIndex}. Retrying...`);
+				const chunkData = this.chunksQueue.find((chunk) => (chunk.taskId === taskId && chunk.chunkIndex === chunkIndex));
+				if (chunkData) {
+					chunkData.status = ProcessingStatus.PENDING;	// Set the status to PENDING so that it is picked up in the next run of processChunks()
+				}
+				this.spawnCompressionPoolWorker(workerIndex);		// Spawn a new worker on worker crash and place it in the same position as the older one
+			}
+		});
 	}
 
 	private processChunks() {
@@ -54,6 +73,8 @@ export class CompressionBroker {
 
 		const { worker } = availableChunkCompressor;
 		availableChunkCompressor.isAvailable = false;
+		availableChunkCompressor.taskId = nextChunkData.taskId;
+		availableChunkCompressor.chunkIndex = nextChunkData.chunkIndex;
 		nextChunkData.status = ProcessingStatus.RUNNING;
 		worker.postMessage(nextChunkData);
 	}

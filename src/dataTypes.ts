@@ -43,6 +43,8 @@ export type TaskWorker = {
 
 export type ChunkCompressWorker = {
 	worker: Worker;
+	taskId: string;
+	chunkIndex: number;
 	isAvailable: boolean;
 }
 
