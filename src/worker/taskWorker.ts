@@ -34,9 +34,16 @@ parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessa
 				
 				writeFile(filePath, Buffer.concat(ordered), (error) => {
 					if (error) {
-						throw error;													// TODO: Check how can this error be handled elegantly.
+						parentPort?.postMessage({
+							success: false,
+							code: "FILE_WRITE_FAILED",
+							message: `Failed to write the compressed file for task ${taskId} to disk: ${error.message}`
+						})													
 					} else {
-						parentPort?.postMessage({ compressedFilePath: filePath });		// Send the path to the compressed file back to the main thread.
+						parentPort?.postMessage({
+							success: true,
+							message: `File has been compressed successfully for task ${taskId}`		// Send the path to the compressed file back to the main thread.
+						});		
 					}
 				})
 

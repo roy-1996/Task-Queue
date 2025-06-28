@@ -32,6 +32,7 @@ export type ChunkData = {
 	taskId: string,
 	chunk: Uint8Array,
 	chunkIndex: number,
+	retryCount? : number,
 	status: ProcessingStatus
 }
 

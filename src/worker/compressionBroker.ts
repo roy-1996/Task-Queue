@@ -1,5 +1,5 @@
 import { MessagePort, Worker } from "node:worker_threads";
-import { compressWorkerPath, numOfActiveCompressWorkers } from "../constants";
+import { compressWorkerPath, MAX_RETRIES, numOfActiveCompressWorkers } from "../constants";
 import { ChunkCompressWorker, ChunkData, IncomingChunkMessage, IncomingCompressionMessage, ProcessingStatus } from "../dataTypes";
 
 export class CompressionBroker {
@@ -37,7 +37,7 @@ export class CompressionBroker {
 				compressedChunk										// Send the compressed chunk to its associated task worker for accumulation
 			});
 			chunkCompressWorker.isAvailable = true;					// Mark the worker as available so that it can be found
-			this.cleanUpCompletedTask(taskId, chunkIndex);			// Remove completed task from chunks queue
+			this.cleanUpCompletedChunks(taskId, chunkIndex);		// Remove completed task from chunks queue
 			this.processChunks();									// Analogous to TaskEventBus.emit("workerAvailable") event
 		});
 
@@ -51,7 +51,16 @@ export class CompressionBroker {
 				console.warn(`Compression worker crashed while processing task ${taskId} and chunk index ${chunkIndex}. Retrying...`);
 				const chunkData = this.chunksQueue.find((chunk) => (chunk.taskId === taskId && chunk.chunkIndex === chunkIndex));
 				if (chunkData) {
-					chunkData.status = ProcessingStatus.PENDING;	// Set the status to PENDING so that it is picked up in the next run of processChunks()
+					const compressRetryCount = chunkData.retryCount ?? 0;
+
+					if (compressRetryCount >= MAX_RETRIES) {
+						chunkData.retryCount = compressRetryCount + 1;
+						chunkData.status = ProcessingStatus.PENDING;	// Set the status to PENDING so that it is picked up in the next run of processChunks()
+						this.processChunks();
+					} else {
+						this.cleanUpAllTaskChunks(taskId);
+						// TODO: How to inform main thread that file compression has failed/
+					}
 				}
 				this.spawnCompressionPoolWorker(workerIndex);		// Spawn a new worker on worker crash and place it in the same position as the older one
 			}
@@ -76,11 +85,23 @@ export class CompressionBroker {
 		availableChunkCompressor.taskId = nextChunkData.taskId;
 		availableChunkCompressor.chunkIndex = nextChunkData.chunkIndex;
 		nextChunkData.status = ProcessingStatus.RUNNING;
-		worker.postMessage(nextChunkData);
+		try {
+			worker.postMessage(nextChunkData);
+		} catch (postMessageError) {
+			console.error(`Failed to send chunk ${nextChunkData.chunkIndex} for ${nextChunkData.taskId} to worker:`, postMessageError);
+			availableChunkCompressor.isAvailable = true;
+			availableChunkCompressor.taskId = '';
+			availableChunkCompressor.chunkIndex = -1;
+			nextChunkData.status = ProcessingStatus.PENDING ;
+		}
 	}
 
-	private cleanUpCompletedTask(taskId: string, chunkIndex: number) {
+	private cleanUpCompletedChunks(taskId: string, chunkIndex: number) {
 		this.chunksQueue = this.chunksQueue.filter((chunk) => !(chunk.taskId === taskId && chunk.chunkIndex === chunkIndex));
+	}
+
+	private cleanUpAllTaskChunks(taskId: string) {
+		this.chunksQueue = this.chunksQueue.filter((chunk) => chunk.taskId !== taskId);
 	}
 
 	public registerTaskWorker(taskId: string, brokerPort: MessagePort) {
@@ -94,5 +115,13 @@ export class CompressionBroker {
 			});
 			this.processChunks();								// Analogous to TaskEventBus.emit("taskAdded") event
 		});
+	}
+
+	public unregisterTaskWorker(taskId: string) {
+		const brokerPort = this.taskPorts.get(taskId);
+		if (brokerPort) {
+			brokerPort.close();
+			this.taskPorts.delete(taskId);
+		}
 	}
 }

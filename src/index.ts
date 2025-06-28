@@ -5,7 +5,7 @@ import { TaskWorker, ProcessingStatus } from "./dataTypes";
 import { createTaskWorker } from "./worker/createTaskWorker";
 import { CompressionBroker } from "./worker/compressionBroker";
 import { numOfActiveTaskWorkers, port, taskWorkerPath } from "./constants";
-import { addTaskToQueue, findNextUnprocessedTask, getTaskByTaskId, markTaskStatus } from "./taskQueueManager";
+import { addTaskToQueue, findNextUnprocessedTask, getTaskByTaskId, markTaskStatus, requeueTask } from "./taskQueueManager";
 
 const app = express();
 const forms = multer();
@@ -103,11 +103,19 @@ function checkTaskQueue() {
 		availableWorkerEntry.assignedTask = task;
 
 		compressionBroker.registerTaskWorker(task.taskId, brokerPort);	
-		worker.postMessage({
-			buffer: task.fileToCompress.buffer,
-			taskId: task.taskId,
-			taskWorkerPort: taskWorkerPort
-		}, [taskWorkerPort]);
+		try {
+			worker.postMessage({
+				buffer: task.fileToCompress.buffer,
+				taskId: task.taskId,
+				taskWorkerPort: taskWorkerPort
+			}, [taskWorkerPort]);
+		} catch (taskWorkerPostMessageError) {
+			availableWorkerEntry.isAvailable = true;
+			availableWorkerEntry.assignedTask = null;
+			compressionBroker.unregisterTaskWorker(task.taskId);
+			requeueTask(task);
+			console.error(`Failed to send file buffer to task worker for task ${task.taskId}: ${taskWorkerPostMessageError}`);
+		}
 	}
 }
 
