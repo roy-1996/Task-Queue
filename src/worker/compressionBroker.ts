@@ -34,7 +34,8 @@ export class CompressionBroker {
 			const brokerPort = this.taskPorts.get(taskId);
 			brokerPort?.postMessage({
 				chunkIndex,
-				compressedChunk										// Send the compressed chunk to its associated task worker for accumulation
+				compressedChunk,										// Send the compressed chunk to its associated task worker for accumulation
+				chunkCompressionSucess: true,
 			});
 			chunkCompressWorker.isAvailable = true;					// Mark the worker as available so that it can be found
 			this.cleanUpCompletedChunks(taskId, chunkIndex);		// Remove completed task from chunks queue
@@ -48,19 +49,29 @@ export class CompressionBroker {
 		worker.on('exit', (code) => {
 			const { taskId, chunkIndex } = chunkCompressWorker;
 			if (code !== 0) {
-				console.warn(`Compression worker crashed while processing task ${taskId} and chunk index ${chunkIndex}. Retrying...`);
-				const chunkData = this.chunksQueue.find((chunk) => (chunk.taskId === taskId && chunk.chunkIndex === chunkIndex));
-				if (chunkData) {
-					const compressRetryCount = chunkData.retryCount ?? 0;
 
-					if (compressRetryCount >= MAX_RETRIES) {
-						chunkData.retryCount = compressRetryCount + 1;
-						chunkData.status = ProcessingStatus.PENDING;	// Set the status to PENDING so that it is picked up in the next run of processChunks()
-						this.processChunks();
-					} else {
-						this.cleanUpAllTaskChunks(taskId);
-						// TODO: How to inform main thread that file compression has failed/
+				// This check means the compression worker crashed after task assignment in processChunks()
+				if (taskId && chunkIndex >= 0) {
+					console.warn(`Compression worker crashed while processing task ${taskId} and chunk index ${chunkIndex}. Retrying...`);
+
+					const chunkData = this.chunksQueue.find((chunk) => (chunk.taskId === taskId && chunk.chunkIndex === chunkIndex));
+					if (chunkData) {
+						const compressRetryCount = chunkData.retryCount ?? 0;
+
+						if (compressRetryCount < MAX_RETRIES) {
+							chunkData.retryCount = compressRetryCount + 1;
+							chunkData.status = ProcessingStatus.PENDING;	// Set the status to PENDING so that it is picked up in the next run of processChunks()
+							this.processChunks();
+						} else {
+							const brokerPort = this.taskPorts.get(taskId);
+							this.cleanUpAllTaskChunks(taskId);
+							brokerPort?.postMessage({
+								chunkCompressionSucess: false,
+							});
+						}
 					}
+				} else {
+					console.warn(`Compression worker crashed before task assignment.`);
 				}
 				this.spawnCompressionPoolWorker(workerIndex);		// Spawn a new worker on worker crash and place it in the same position as the older one
 			}

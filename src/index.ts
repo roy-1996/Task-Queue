@@ -100,7 +100,7 @@ function checkTaskQueue() {
 		const { worker } = availableWorkerEntry;
 		markTaskStatus(task, ProcessingStatus.RUNNING);
 		availableWorkerEntry.isAvailable = false;
-		availableWorkerEntry.assignedTask = task;
+		availableWorkerEntry.assignedTaskId = task.taskId;
 
 		compressionBroker.registerTaskWorker(task.taskId, brokerPort);	
 		try {
@@ -111,7 +111,7 @@ function checkTaskQueue() {
 			}, [taskWorkerPort]);
 		} catch (taskWorkerPostMessageError) {
 			availableWorkerEntry.isAvailable = true;
-			availableWorkerEntry.assignedTask = null;
+			availableWorkerEntry.assignedTaskId = "";
 			compressionBroker.unregisterTaskWorker(task.taskId);
 			requeueTask(task);
 			console.error(`Failed to send file buffer to task worker for task ${task.taskId}: ${taskWorkerPostMessageError}`);

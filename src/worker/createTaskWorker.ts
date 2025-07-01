@@ -2,7 +2,7 @@ import { MAX_RETRIES } from "../constants";
 import { Worker } from 'node:worker_threads';
 import { TaskEventBus } from "../taskEventBus";
 import { TaskWorker, ProcessingStatus } from "../dataTypes";
-import { markTaskStatus, requeueTask } from "../taskQueueManager";
+import { getTaskByTaskId, markTaskStatus, requeueTask } from "../taskQueueManager";
 
 /**
  * Initializes and manages a worker thread for file compression tasks within a worker pool.
@@ -24,29 +24,33 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 	const taskWorker: TaskWorker = {
 		worker: worker,
 		isAvailable: true,
-		assignedTask: null,
+		assignedTaskId: "",
 	};
 
 	workerPool[workerIndex] = taskWorker;
 
 	worker.on("message", () => {
-		const task = taskWorker.assignedTask;
-		if (task) {
+		const { assignedTaskId } = taskWorker;
+		const assignedTask = getTaskByTaskId(assignedTaskId);
+
+		if (assignedTask) {
 			taskWorker.isAvailable = true;
-			taskWorker.assignedTask = null;
-			markTaskStatus(task, ProcessingStatus.COMPLETED);
+			taskWorker.assignedTaskId = "";
+			markTaskStatus(assignedTask, ProcessingStatus.COMPLETED);
 			TaskEventBus.emit("workerAvailable"); // Emit this event to invoke checkTaskQueue
 		}
 	});
 
 	worker.on("error", (error) => {
 		console.log(
-			`Worker with task id ${taskWorker.assignedTask?.taskId} and thread id ${worker.threadId} crashed because of ${error.message}`
+			`Worker with task id ${taskWorker.assignedTaskId} and thread id ${worker.threadId} crashed because of ${error.message}`
 		);
 	});
 
 	worker.on("exit", (code) => {
-		const currentTask = workerPool[workerIndex].assignedTask;
+		const currentTaskId = workerPool[workerIndex].assignedTaskId;
+		const currentTask = getTaskByTaskId(currentTaskId);
+
 		if (code !== 0 && currentTask) {
 			const retryCount = currentTask.retryCount ?? 0;
 
@@ -60,7 +64,7 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 				requeueTask(currentTask); // Add the file to the end of the queue
 			}
 
-			workerPool[workerIndex].assignedTask = null;
+			workerPool[workerIndex].assignedTaskId = "";
 			createTaskWorker(workerPath, workerPool, workerIndex); // Spawn a new worker on worker crash
 		}
 	});

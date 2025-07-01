@@ -39,7 +39,7 @@ export type ChunkData = {
 export type TaskWorker = {
 	worker: Worker;
 	isAvailable: boolean;
-	assignedTask: Task | null;
+	assignedTaskId: string;
 };
 
 export type ChunkCompressWorker = {

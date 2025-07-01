@@ -22,6 +22,16 @@ parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessa
 		// Compression Worker ----> Compression Broker ------> Task Worker
 
 		taskWorkerPort.on("message", (messageFromBroker) => {
+
+			// Compressing a chunk failed after several retries which means the file cannot be compressed altogether
+			if (!messageFromBroker.chunkCompressionSucess) {
+				parentPort?.postMessage({
+					success: false,
+					code: "COMPRESSION_FAILED",
+					message: `Failed to compress file for task ${taskId}`
+				});
+			}
+
 			compressedChunks.set(messageFromBroker.chunkId, messageFromBroker.compressedChunk);
 
 			// Accumulate the compressed chunks and sort them based on their position
