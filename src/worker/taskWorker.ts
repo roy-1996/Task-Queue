@@ -14,7 +14,7 @@ parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessa
 
 		chunkedBuffer.forEach((chunk, index) => {
 			taskWorkerPort.postMessage({
-				chunkId: index,
+				chunkIndex: index,
 				chunkToCompress: chunk,
 			});
 		});
@@ -33,7 +33,7 @@ parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessa
 				process.exit(1);	// Required to send control to exit block for retry
 			}
 
-			compressedChunks.set(messageFromBroker.chunkId, messageFromBroker.compressedChunk);
+			compressedChunks.set(messageFromBroker.chunkIndex, messageFromBroker.compressedChunk);
 
 			// Accumulate the compressed chunks and sort them based on their position
 

@@ -17,9 +17,7 @@ export class CompressionBroker {
 	}
 
 	private spawnCompressionPoolWorker(workerIndex: number) {
-		const worker = new Worker(compressWorkerPath, {
-			execArgv: ["-r", "ts-node/register"],
-		});
+		const worker = new Worker(compressWorkerPath);
 
 		const chunkCompressWorker: ChunkCompressWorker = {
 			worker: worker,

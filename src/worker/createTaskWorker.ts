@@ -1,6 +1,6 @@
-import { MAX_RETRIES } from "../constants";
 import { Worker } from 'node:worker_threads';
 import { TaskEventBus } from "../taskEventBus";
+import { MAX_RETRIES, taskWorkerPath } from "../constants";
 import { TaskWorker, ProcessingStatus } from "../dataTypes";
 import { getTaskByTaskId, markTaskStatus, requeueTask } from "../taskQueueManager";
 
@@ -16,10 +16,8 @@ import { getTaskByTaskId, markTaskStatus, requeueTask } from "../taskQueueManage
  * @remark
  * If a worker crashes while processing a task, the function will automatically retry the task up to the maximum allowed retries and respawn the worker to maintain pool size.
  */
-export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], workerIndex: number) {
-	const worker = new Worker(workerPath, {
-		execArgv: [...process.execArgv, '-r', 'ts-node/register'],
-	});
+export function createTaskWorker(workerPool: TaskWorker[], workerIndex: number) {
+	const worker = new Worker(taskWorkerPath);
 
 	const taskWorker: TaskWorker = {
 		worker: worker,
@@ -75,7 +73,7 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 			}
 
 			workerPool[workerIndex].assignedTaskId = "";
-			createTaskWorker(workerPath, workerPool, workerIndex); // Spawn a new worker on worker crash
+			createTaskWorker(workerPool, workerIndex); // Spawn a new worker on worker crash
 		}
 	});
 }

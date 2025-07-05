@@ -1,10 +1,10 @@
 import multer from "multer";
 import { TaskEventBus } from "./taskEventBus";
 import express, { Response, Request } from "express";
+import { numOfActiveTaskWorkers, port } from "./constants";
 import { TaskWorker, ProcessingStatus } from "./dataTypes";
 import { createTaskWorker } from "./worker/createTaskWorker";
 import { CompressionBroker } from "./worker/compressionBroker";
-import { numOfActiveTaskWorkers, port, taskWorkerPath } from "./constants";
 import { addTaskToQueue, findNextUnprocessedTask, getTaskByTaskId, markTaskStatus, requeueTask } from "./taskQueueManager";
 
 const app = express();
@@ -94,7 +94,7 @@ app.listen(port, () => {
 	console.log(`Task queue app listening on port ${port}`);
 
 	for (let i = 0; i < numOfActiveTaskWorkers; i++) {
-		createTaskWorker(taskWorkerPath, taskWorkers, i); // Creating worker pool
+		createTaskWorker(taskWorkers, i); // Creating worker pool
 	}
 });
 
