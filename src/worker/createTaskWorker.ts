@@ -29,7 +29,17 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 
 	workerPool[workerIndex] = taskWorker;
 
-	worker.on("message", () => {
+	worker.on("message", (messageFromTaskWorker) => {
+		const { success, message, taskId } = messageFromTaskWorker;
+
+		if (!success) {
+			const currentTask = getTaskByTaskId(taskId);
+			if (currentTask) {
+				currentTask.failureMessage = message;
+			}
+			return;
+		}
+
 		const { assignedTaskId } = taskWorker;
 		const assignedTask = getTaskByTaskId(assignedTaskId);
 

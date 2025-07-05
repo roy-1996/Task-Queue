@@ -28,16 +28,16 @@ app.post(
 
 		const taskId = addTaskToQueue(fileToCompress);
 		if (!taskId) {
-			res
-				.status(503)
+			res.status(503)
 				.send("Task limit exceeded!! Please try again later.")
 				.set("Retry-After", "10");
 			return;
 		}
 
-		res.status(202).send({
-			taskId: taskId,
-			message: "File accepted for compression",
+		res.status(202)
+			.send({
+				taskId: taskId,
+				message: "File accepted for compression",
 		});
 	}
 );
@@ -47,13 +47,15 @@ app.get("/status/:taskId", (req, res) => {
 	const task = getTaskByTaskId(taskId);
 
 	if (!task) {
-		res.status(404).send(`Task with taskId ${taskId} not found.`);
+		res.status(404)
+			.send(`Task with taskId ${taskId} not found.`);
 		return;
 	}
 
-	res.status(200).json({
-		taskId: taskId,
-		taskStatus: task.taskStatus,
+	res.status(200)
+		.json({
+			taskId: taskId,
+			taskStatus: task.taskStatus,
 	});
 });
 
@@ -62,12 +64,29 @@ app.get("/download/:taskId", (req, res) => {
 	const task = getTaskByTaskId(taskId);
 
 	if (!task) {
-		res.status(404).send(`Compressed file not found.`);
+		res.status(404)
+			.send(`Compressed file not found.`);
 		return;
 	}
 
 	if (task.taskStatus === ProcessingStatus.COMPLETED) {
-		res.status(200).download(task.outputFilePath);
+		res.status(200)
+			.download(task.outputFilePath, (err) => {
+			if (err) {
+				res.status(500)
+					.send("Error in downloading compressed file.");
+			}
+		});
+	} else if (task.taskStatus === ProcessingStatus.FAILED) {
+		res.status(410)
+			.send({
+			errorMessage:
+				task.failureMessage ?? "The task could not be completed due to internal failure.",
+		});
+	} else {
+		res.status(409)
+			.set("Retry-After", "10")
+			.send("File compression is in progress.");
 	}
 });
 

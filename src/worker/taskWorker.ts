@@ -27,9 +27,10 @@ parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessa
 			if (!messageFromBroker.chunkCompressionSucess) {
 				parentPort?.postMessage({
 					success: false,
-					code: "COMPRESSION_FAILED",
+					taskId: taskId,
 					message: `Failed to compress file for task ${taskId}`
 				});
+				process.exit(1);	// Required to send control to exit block for retry
 			}
 
 			compressedChunks.set(messageFromBroker.chunkId, messageFromBroker.compressedChunk);
@@ -46,9 +47,9 @@ parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessa
 					if (error) {
 						parentPort?.postMessage({
 							success: false,
-							code: "FILE_WRITE_FAILED",
 							message: `Failed to write the compressed file for task ${taskId} to disk: ${error.message}`
-						})													
+						});
+						process.exit(1);													
 					} else {
 						parentPort?.postMessage({
 							success: true,

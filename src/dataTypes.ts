@@ -4,6 +4,7 @@ import { MessagePort, Worker } from "worker_threads";
 type BaseTask = {
 	taskId: string;
 	retryCount?: number; // To track the retry count of failed tasks
+	failureMessage?: string;
 	fileToCompress: Express.Multer.File;
 };
 
