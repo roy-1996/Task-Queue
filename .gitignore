@@ -3,3 +3,4 @@ package-lock.json
 bruno.json
 File Compressor/
 .DS_Store
+dist/

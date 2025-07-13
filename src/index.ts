@@ -7,6 +7,8 @@ import { createTaskWorker } from "./worker/createTaskWorker";
 import { CompressionBroker } from "./worker/compressionBroker";
 import { addTaskToQueue, findNextUnprocessedTask, getTaskByTaskId, markTaskStatus, requeueTask } from "./taskQueueManager";
 
+// zstd -dc /Users/I517467/Downloads/50c577ee-3204-4b69-93db-19833b55e3b2.tar.zst | tar -xf -
+
 const app = express();
 const forms = multer();
 
@@ -29,8 +31,8 @@ app.post(
 		const taskId = addTaskToQueue(fileToCompress);
 		if (!taskId) {
 			res.status(503)
+				.set("Retry-After", "10")
 				.send("Task limit exceeded!! Please try again later.")
-				.set("Retry-After", "10");
 			return;
 		}
 
@@ -47,16 +49,22 @@ app.get("/status/:taskId", (req, res) => {
 	const task = getTaskByTaskId(taskId);
 
 	if (!task) {
-		res.status(404)
-			.send(`Task with taskId ${taskId} not found.`);
+		res.status(404).send(`Task with taskId ${taskId} not found.`);
 		return;
 	}
 
-	res.status(200)
-		.json({
+	if (task.taskStatus === ProcessingStatus.FAILED) {
+		res.status(200).json({
 			taskId: taskId,
 			taskStatus: task.taskStatus,
-	});
+			failureMessage: task.failureMessage,
+		});
+	} else {
+		res.status(200).json({
+			taskId: taskId,
+			taskStatus: task.taskStatus,
+		});
+	}
 });
 
 app.get("/download/:taskId", (req, res) => {
@@ -126,7 +134,8 @@ function checkTaskQueue() {
 			worker.postMessage({
 				buffer: task.fileToCompress.buffer,
 				taskId: task.taskId,
-				taskWorkerPort: taskWorkerPort
+				taskWorkerPort: taskWorkerPort,
+				fileName: task.fileToCompress.originalname
 			}, [taskWorkerPort]);
 		} catch (taskWorkerPostMessageError) {
 			availableWorkerEntry.isAvailable = true;

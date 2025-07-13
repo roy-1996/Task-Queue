@@ -1,4 +1,4 @@
-import { Worker } from 'node:worker_threads';
+import { Worker } from "node:worker_threads";
 import { TaskEventBus } from "../taskEventBus";
 import { MAX_RETRIES, taskWorkerPath } from "../constants";
 import { TaskWorker, ProcessingStatus } from "../dataTypes";
@@ -50,9 +50,14 @@ export function createTaskWorker(workerPool: TaskWorker[], workerIndex: number) 
 	});
 
 	worker.on("error", (error) => {
-		console.log(
-			`Worker with task id ${taskWorker.assignedTaskId} and thread id ${worker.threadId} crashed because of ${error.message}`
-		);
+		const currentTaskId = workerPool[workerIndex].assignedTaskId;
+		const currentTask = getTaskByTaskId(currentTaskId);
+		if (currentTask) {
+			currentTask.failureMessage = error.message;
+			console.error(
+				`Worker with task id ${taskWorker.assignedTaskId} and thread id ${worker.threadId} crashed because of ${error.message}`
+			);
+		}
 	});
 
 	worker.on("exit", (code) => {

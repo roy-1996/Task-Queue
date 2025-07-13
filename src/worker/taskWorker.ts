@@ -1,14 +1,15 @@
 import { writeFile } from "node:fs";
 import { parentPort } from "worker_threads";
-import { breakBufferIntoChunks } from "../utils";
+import { breakBufferIntoChunks, createTarStream } from "../utils";
 import { IncomingTaskMessage } from "../dataTypes";
 
-parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessage) => {
+parentPort?.on("message", async ({ buffer, taskId, taskWorkerPort, fileName }: IncomingTaskMessage) => {
 
 		// Map to maintain mapping of chunk index and the compressed chunk
 
 		const compressedChunks = new Map<number, Buffer>();
-		const chunkedBuffer = breakBufferIntoChunks(buffer);
+		const tarBuffer = await createTarStream(fileName, buffer);
+		const chunkedBuffer = breakBufferIntoChunks(tarBuffer);
 
 		// Sends the chunk to the broker which then pushes it to its queue.
 
@@ -38,7 +39,7 @@ parentPort?.on("message", ({ buffer, taskId, taskWorkerPort }: IncomingTaskMessa
 			// Accumulate the compressed chunks and sort them based on their position
 
 			if (compressedChunks.size === chunkedBuffer.length) {
-				const filePath = `${process.cwd()}/${taskId}.zip`;						// Same path as used in taskQueueManager.ts
+				const filePath = `${process.cwd()}/compressedFiles/${taskId}.tar.zst`;						// Same path as used in taskQueueManager.ts
 				const ordered = [...compressedChunks.entries()]
 					.sort((a, b) => a[0] - b[0])
 					.map(([, buf]) => buf);

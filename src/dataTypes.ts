@@ -59,7 +59,7 @@ export enum ProcessingStatus {
 
 export type MulterRequest = Request & { file: Express.Multer.File };
 
-export type IncomingTaskMessage = { buffer: Uint8Array; taskId: string; taskWorkerPort: MessagePort };
+export type IncomingTaskMessage = { buffer: Uint8Array; taskId: string; taskWorkerPort: MessagePort, fileName: string };
 
 export type IncomingChunkMessage = { chunkToCompress: Uint8Array, chunkIndex: number };
 
