@@ -43,6 +43,7 @@ export function requeueTask(task: Task) {
 		taskId: task.taskId,
 		fileToCompress: task.fileToCompress,
 		taskStatus: ProcessingStatus.PENDING,
+		retryCount: task.retryCount
 	};
 	taskQueue.push(pendingTask);
 	TaskEventBus.emit("taskAdded");		// Emit event to trigger queue processing
@@ -59,7 +60,7 @@ export function markTaskStatus(task: Task, status: ProcessingStatus): void {
 		task.completedAt = Date.now();
 	}
 	if (task.taskStatus === ProcessingStatus.COMPLETED) {
-		task.outputFilePath = `${process.cwd()}/${task.taskId}.zip`;
+		task.outputFilePath = `${process.cwd()}/compressedFiles/${task.taskId}.tar.zst`;
 	}
 }
 
@@ -82,7 +83,7 @@ setInterval(async () => {
 }, 60 * 1000);
 
 async function deleteCompressedFile(taskId: string) {
-	const filePath =  `${process.cwd()}/${taskId}.zip`;
+	const filePath =  `${process.cwd()}/compressedFiles/${taskId}.tar.zst`;
 	try {
 		await unlinkAsync(filePath);
 		console.log(`Deleted compressed file successfully at path ${filePath}`);

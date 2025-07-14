@@ -1,14 +1,11 @@
-import { deflate } from "node:zlib";
-import { promisify } from "node:util";
 import { ChunkData } from "../dataTypes";
+import { compress } from "@mongodb-js/zstd";
 import { parentPort } from "node:worker_threads";
-
-const deflateAsync = promisify(deflate);
 
 parentPort?.on('message', async (chunkData: ChunkData) => {
 
     const { chunk, taskId, chunkIndex } = chunkData;
-    const compressedChunk = await deflateAsync(chunk);
+    const compressedChunk = await compress(Buffer.from(chunk), 3);
 
     parentPort?.postMessage({
         taskId,

@@ -2,10 +2,10 @@
   "name": "taskqueue",
   "version": "1.0.0",
   "description": "Task queue with worker pool",
-  "main": "index.ts",
+  "main": "dist/index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "clear && npx tsc && node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -19,15 +19,19 @@
   },
   "homepage": "https://github.com/roy-1996/Task-Queue#readme",
   "dependencies": {
+    "@mongodb-js/zstd": "^2.0.1",
+    "archiver": "^7.0.1",
     "axios": "^1.9.0",
     "express": "^5.1.0",
     "multer": "^2.0.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@types/archiver": "^6.0.3",
     "@types/express": "^5.0.2",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.15.30",
+    "@types/tar-stream": "^3.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }

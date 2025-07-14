@@ -1,8 +1,8 @@
-import { MAX_RETRIES } from "../constants";
-import { Worker } from 'node:worker_threads';
+import { Worker } from "node:worker_threads";
 import { TaskEventBus } from "../taskEventBus";
+import { MAX_RETRIES, taskWorkerPath } from "../constants";
 import { TaskWorker, ProcessingStatus } from "../dataTypes";
-import { markTaskStatus, requeueTask } from "../taskQueueManager";
+import { getTaskByTaskId, markTaskStatus, requeueTask } from "../taskQueueManager";
 
 /**
  * Initializes and manages a worker thread for file compression tasks within a worker pool.
@@ -16,37 +16,54 @@ import { markTaskStatus, requeueTask } from "../taskQueueManager";
  * @remark
  * If a worker crashes while processing a task, the function will automatically retry the task up to the maximum allowed retries and respawn the worker to maintain pool size.
  */
-export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], workerIndex: number) {
-	const worker = new Worker(workerPath, {
-		execArgv: [...process.execArgv, '-r', 'ts-node/register'],
-	});
+export function createTaskWorker(workerPool: TaskWorker[], workerIndex: number) {
+	const worker = new Worker(taskWorkerPath);
 
 	const taskWorker: TaskWorker = {
 		worker: worker,
 		isAvailable: true,
-		assignedTask: null,
+		assignedTaskId: "",
 	};
 
 	workerPool[workerIndex] = taskWorker;
 
-	worker.on("message", () => {
-		const task = taskWorker.assignedTask;
-		if (task) {
+	worker.on("message", (messageFromTaskWorker) => {
+		const { success, message, taskId } = messageFromTaskWorker;
+
+		if (!success) {
+			const currentTask = getTaskByTaskId(taskId);
+			if (currentTask) {
+				currentTask.failureMessage = message;
+			}
+			return;
+		}
+
+		const { assignedTaskId } = taskWorker;
+		const assignedTask = getTaskByTaskId(assignedTaskId);
+
+		if (assignedTask) {
 			taskWorker.isAvailable = true;
-			taskWorker.assignedTask = null;
-			markTaskStatus(task, ProcessingStatus.COMPLETED);
+			taskWorker.assignedTaskId = "";
+			markTaskStatus(assignedTask, ProcessingStatus.COMPLETED);
 			TaskEventBus.emit("workerAvailable"); // Emit this event to invoke checkTaskQueue
 		}
 	});
 
 	worker.on("error", (error) => {
-		console.log(
-			`Worker with id ${worker.threadId} crashed because of ${error.message}`
-		);
+		const currentTaskId = workerPool[workerIndex].assignedTaskId;
+		const currentTask = getTaskByTaskId(currentTaskId);
+		if (currentTask) {
+			currentTask.failureMessage = error.message;
+			console.error(
+				`Worker with task id ${taskWorker.assignedTaskId} and thread id ${worker.threadId} crashed because of ${error.message}`
+			);
+		}
 	});
 
 	worker.on("exit", (code) => {
-		const currentTask = workerPool[workerIndex].assignedTask;
+		const currentTaskId = workerPool[workerIndex].assignedTaskId;
+		const currentTask = getTaskByTaskId(currentTaskId);
+
 		if (code !== 0 && currentTask) {
 			const retryCount = currentTask.retryCount ?? 0;
 
@@ -54,14 +71,14 @@ export function createTaskWorker(workerPath: string, workerPool: TaskWorker[], w
 				markTaskStatus(currentTask, ProcessingStatus.FAILED);
 			} else {
 				console.warn(
-					`Worker crashed while processing task ${currentTask.taskId}. Retrying...`
+					`Task worker crashed while processing task ${currentTask.taskId}. Retrying...`
 				);
 				currentTask.retryCount = retryCount + 1;
 				requeueTask(currentTask); // Add the file to the end of the queue
 			}
 
-			workerPool[workerIndex].assignedTask = null;
-			createTaskWorker(workerPath, workerPool, workerIndex); // Spawn a new worker on worker crash
+			workerPool[workerIndex].assignedTaskId = "";
+			createTaskWorker(workerPool, workerIndex); // Spawn a new worker on worker crash
 		}
 	});
 }

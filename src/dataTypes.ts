@@ -4,6 +4,7 @@ import { MessagePort, Worker } from "worker_threads";
 type BaseTask = {
 	taskId: string;
 	retryCount?: number; // To track the retry count of failed tasks
+	failureMessage?: string;
 	fileToCompress: Express.Multer.File;
 };
 
@@ -32,17 +33,20 @@ export type ChunkData = {
 	taskId: string,
 	chunk: Uint8Array,
 	chunkIndex: number,
+	retryCount? : number,
 	status: ProcessingStatus
 }
 
 export type TaskWorker = {
 	worker: Worker;
 	isAvailable: boolean;
-	assignedTask: Task | null;
+	assignedTaskId: string;
 };
 
 export type ChunkCompressWorker = {
 	worker: Worker;
+	taskId: string;
+	chunkIndex: number;
 	isAvailable: boolean;
 }
 
@@ -55,7 +59,7 @@ export enum ProcessingStatus {
 
 export type MulterRequest = Request & { file: Express.Multer.File };
 
-export type IncomingTaskMessage = { buffer: Uint8Array; taskId: string; taskWorkerPort: MessagePort };
+export type IncomingTaskMessage = { buffer: Uint8Array; taskId: string; taskWorkerPort: MessagePort, fileName: string };
 
 export type IncomingChunkMessage = { chunkToCompress: Uint8Array, chunkIndex: number };
 
